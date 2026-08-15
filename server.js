@@ -50,15 +50,17 @@ wss.on('connection', ws => {
 });
 
 // ---------- Donatiemail herkennen ----------
-// LET OP: nog een gok op basis van hoe dit soort mails er meestal uitzien. Moet nog geverifieerd
-// en zo nodig aangepast worden aan de hand van een echte Opkikker/Kentaa-donatiemail.
+// Gebaseerd op een echte mail van Stichting Opkikker <no-reply@community-fundraising.com>:
+// onderwerp "Je team heeft een donatie ontvangen", inhoud met de regels
+// "Naam donateur: ..." en "Bedrag: € ...".
 function verwerkMail(parsed) {
-    const tekst = parsed.text || '';
+    if (!/donatie ontvangen/i.test(parsed.subject || '')) return null;
 
-    const bedragMatch = tekst.match(/€\s?([\d.,]+)/);
+    const tekst = parsed.text || '';
+    const bedragMatch = tekst.match(/Bedrag:\s*€\s?([\d.,]+)/i);
     if (!bedragMatch) return null;
 
-    const naamMatch = tekst.match(/(?:Naam|Van)\s*:?\s*([^\n]+)/i);
+    const naamMatch = tekst.match(/Naam donateur:\s*([^\n]+)/i);
 
     return {
         bedrag: bedragMatch[1].replace('.', '').replace(',', '.'),
