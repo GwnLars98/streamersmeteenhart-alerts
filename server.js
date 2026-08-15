@@ -63,14 +63,15 @@ app.get('/test-donatie', async (req, res) => {
 });
 
 // ---------- Donatiemail herkennen ----------
-// Gebaseerd op een echte mail van Stichting Opkikker <no-reply@community-fundraising.com>:
-// onderwerp "Je team heeft een donatie ontvangen", inhoud met de regels
-// "Naam donateur: ..." en "Bedrag: € ...".
+// Opkikker stuurt per donatie TWEE mails vanaf hetzelfde adres: één naar de teamkapitein
+// ("Je team heeft een donatie ontvangen", met "Naam donateur:"/"Bedrag: €"-regels) en één naar de
+// donateur zelf ("Bedankt voor jouw bijdrage!", met "Donatiebedrag:"). We willen alleen de eerste,
+// dus wordt bewust exact op dat onderwerp gefilterd, niet alleen op "donatie" ergens in de tekst.
 function verwerkMail(parsed) {
-    if (!/donatie ontvangen/i.test(parsed.subject || '')) return null;
+    if (!/team heeft een donatie ontvangen/i.test(parsed.subject || '')) return null;
 
     const tekst = parsed.text || '';
-    const bedragMatch = tekst.match(/Bedrag:\s*€\s?([\d.,]+)/i);
+    const bedragMatch = tekst.match(/(?<!Donatie)Bedrag:\s*€\s?([\d.,]+)/i);
     if (!bedragMatch) return null;
 
     const naamMatch = tekst.match(/Naam donateur:\s*([^\n]+)/i);
