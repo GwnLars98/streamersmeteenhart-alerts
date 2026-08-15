@@ -166,9 +166,13 @@
     toon(wachtrij.shift());
   }
 
+  // Vast adres van het overlay-servertje (Railway), zodat deze pagina ook overal elders
+  // gehost kan worden (bijv. streamersmeteenhart.nl/overlay.html via Netlify) en toch met de
+  // juiste server verbindt, in plaats van te vertrouwen op waar de pagina zelf vandaan komt.
+  var WS_URL = 'wss://streamersmeteenhart-alerts-production.up.railway.app/ws';
+
   function verbind() {
-    var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    var ws = new WebSocket(protocol + '//' + location.host + '/ws');
+    var ws = new WebSocket(WS_URL);
 
     ws.onmessage = function (event) {
       var data = JSON.parse(event.data);
