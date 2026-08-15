@@ -139,7 +139,7 @@
         osc.type = 'triangle';
         osc.frequency.value = freq;
         gain.gain.setValueAtTime(0, t);
-        gain.gain.linearRampToValueAtTime(0.25, t + 0.02);
+        gain.gain.linearRampToValueAtTime(0.1, t + 0.02);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
         osc.connect(gain).connect(ctx.destination);
         osc.start(t);
