@@ -8,6 +8,7 @@ const { simpleParser } = require('mailparser');
 
 const PORT = process.env.PORT || 3000;
 const POLL_INTERVAL_MS = 30 * 1000;
+const DONATIE_AFZENDER = 'no-reply@community-fundraising.com';
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
@@ -84,7 +85,9 @@ async function checkMailbox() {
         await client.connect();
         const lock = await client.getMailboxLock('INBOX');
         try {
-            const onbekend = await client.search({ seen: false });
+            // Zoekt bewust alleen op afzender, zodat de rest van de persoonlijke mailbox van de
+            // eigenaar volledig onaangeroerd blijft (niet gelezen, niet geopend, niks).
+            const onbekend = await client.search({ seen: false, from: DONATIE_AFZENDER });
             for (const uid of onbekend) {
                 const { content } = await client.download(uid);
                 const parsed = await simpleParser(content);
