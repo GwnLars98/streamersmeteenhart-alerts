@@ -1,0 +1,19 @@
+{
+  "name": "streamersmeteenhart-alerts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Overlay-server voor livestream-donatiealerts: leest een mailbox uit op Opkikker/Kentaa-donatiemails en stuurt een alert naar de OBS-overlay via WebSocket.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "imapflow": "^1.0.157",
+    "mailparser": "^3.7.1",
+    "ws": "^8.18.0"
+  }
+}
