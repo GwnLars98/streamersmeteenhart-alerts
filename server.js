@@ -106,6 +106,61 @@ app.get('/debug-mail', async (req, res) => {
     res.type('text/plain').send(output);
 });
 
+// Haalt de meest recente "team heeft een donatie ontvangen"-mail op (ongeacht gelezen-status) en
+// stuurt 'm alsnog door de volledige meldingsketen (overlay + Discord), handig om te testen zonder
+// een nieuwe echte donatie nodig te hebben.
+app.get('/debug-replay', async (req, res) => {
+    const secret = process.env.TEST_SECRET;
+    if (!secret || req.query.secret !== secret) return res.status(403).send('geen toegang');
+
+    const { IMAP_HOST, IMAP_USER, IMAP_PASSWORD } = process.env;
+    if (!IMAP_HOST || !IMAP_USER || !IMAP_PASSWORD) return res.type('text/plain').send('IMAP niet geconfigureerd.');
+
+    const client = new ImapFlow({
+        host: IMAP_HOST, port: 993, secure: true,
+        auth: { user: IMAP_USER, pass: IMAP_PASSWORD }, logger: false,
+    });
+
+    let output = '';
+    try {
+        await client.connect();
+        const lock = await client.getMailboxLock('INBOX');
+        try {
+            const alles = await client.search({ from: DONATIE_AFZENDER });
+            let gevonden = null;
+            for (const uid of alles.slice().reverse()) {
+                const { content } = await client.download(uid);
+                const parsed = await simpleParser(content);
+                if (/team heeft een donatie ontvangen/i.test(parsed.subject || '')) {
+                    gevonden = parsed;
+                    break;
+                }
+            }
+
+            if (!gevonden) {
+                output = 'Geen "team heeft een donatie ontvangen"-mail gevonden.';
+            } else {
+                const donatie = verwerkMail(gevonden);
+                if (!donatie) {
+                    output = `Mail gevonden (onderwerp "${gevonden.subject}"), maar matchte niet het bedrag/naam-patroon.`;
+                } else {
+                    stuurNaarOverlays({ type: 'donatie', ...donatie });
+                    await stuurNaarDiscord(donatie);
+                    output = `Opnieuw verstuurd: €${donatie.bedrag} van ${donatie.naam}`;
+                }
+            }
+        } finally {
+            lock.release();
+        }
+    } catch (err) {
+        output = 'Fout: ' + err.message;
+    } finally {
+        await client.logout().catch(() => {});
+    }
+
+    res.type('text/plain').send(output);
+});
+
 // ---------- Donatiemail herkennen ----------
 // Opkikker stuurt per donatie TWEE mails vanaf hetzelfde adres: één naar de teamkapitein
 // ("Je team heeft een donatie ontvangen", met "Naam donateur:"/"Bedrag: €"-regels) en één naar de
