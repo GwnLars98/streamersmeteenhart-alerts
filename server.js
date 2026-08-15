@@ -37,7 +37,7 @@ async function stuurNaarDiscord(donatie) {
             embeds: [{
                 type: 'rich',
                 color: 0x1F7A4C,
-                title: '💚 Nieuwe donatie!',
+                title: '💚 Streamers met een Hart heeft een donatie ontvangen!',
                 description: `**${donatie.naam}** doneerde **€${donatie.bedrag}**`,
                 timestamp: new Date().toISOString(),
             }],
