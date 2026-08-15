@@ -82,11 +82,17 @@ function verwerkMail(parsed) {
     };
 }
 
+// Retourneert altijd een array met logregels (naast dat elke regel ook naar console.log gaat),
+// zodat /debug-check dit rechtstreeks kan teruggeven zonder dat iemand in de Railway-logs hoeft
+// te kijken.
 async function checkMailbox() {
+    const regels = [];
+    const log = msg => { console.log(msg); regels.push(msg); };
+
     const { IMAP_HOST, IMAP_USER, IMAP_PASSWORD } = process.env;
     if (!IMAP_HOST || !IMAP_USER || !IMAP_PASSWORD) {
-        console.log('IMAP niet geconfigureerd, sla mailcheck over.');
-        return;
+        log('IMAP niet geconfigureerd, sla mailcheck over.');
+        return regels;
     }
 
     const client = new ImapFlow({
@@ -99,20 +105,26 @@ async function checkMailbox() {
 
     try {
         await client.connect();
+        log('IMAP-verbinding gelukt.');
         const lock = await client.getMailboxLock('INBOX');
         try {
             // Zoekt bewust alleen op afzender, zodat de rest van de persoonlijke mailbox van de
             // eigenaar volledig onaangeroerd blijft (niet gelezen, niet geopend, niks).
             const onbekend = await client.search({ seen: false, from: DONATIE_AFZENDER });
+            log(`${onbekend.length} ongelezen bericht(en) gevonden van ${DONATIE_AFZENDER}.`);
+
             for (const uid of onbekend) {
                 const { content } = await client.download(uid);
                 const parsed = await simpleParser(content);
+                log(`Bericht gevonden: onderwerp = "${parsed.subject}"`);
 
                 const donatie = verwerkMail(parsed);
                 if (donatie) {
-                    console.log(`Nieuwe donatie herkend: €${donatie.bedrag} van ${donatie.naam}`);
+                    log(`Nieuwe donatie herkend: €${donatie.bedrag} van ${donatie.naam}`);
                     stuurNaarOverlays({ type: 'donatie', ...donatie });
                     await stuurNaarDiscord(donatie);
+                } else {
+                    log('-> matchte niet het donatie-patroon, overgeslagen.');
                 }
 
                 await client.messageFlagsAdd(uid, ['\\Seen']);
@@ -121,11 +133,23 @@ async function checkMailbox() {
             lock.release();
         }
     } catch (err) {
-        console.error('Mailbox uitlezen mislukt:', err.message);
+        log('Mailbox uitlezen mislukt: ' + err.message);
     } finally {
         await client.logout().catch(() => {});
     }
+
+    return regels;
 }
+
+// Forceert direct een mailcheck en toont precies wat er gebeurde, i.p.v. te wachten op de
+// volgende automatische ronde (elke 30s) en in Railway's dashboard te moeten kijken.
+app.get('/debug-check', async (req, res) => {
+    const secret = process.env.TEST_SECRET;
+    if (!secret || req.query.secret !== secret) return res.status(403).send('geen toegang');
+
+    const regels = await checkMailbox();
+    res.type('text/plain').send(regels.join('\n') || '(geen output)');
+});
 
 server.listen(PORT, () => {
     console.log(`✅ Overlay-server actief op poort ${PORT}`);
