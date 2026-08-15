@@ -49,6 +49,19 @@ wss.on('connection', ws => {
     ws.send(JSON.stringify({ type: 'verbonden' }));
 });
 
+// Simuleert een donatie (overlay + Discord), zonder dat er echt gedoneerd hoeft te worden.
+// Vereist TEST_SECRET als querystring-param, zodat niet zomaar iedereen op het internet dit kan
+// triggeren.
+app.get('/test-donatie', async (req, res) => {
+    const secret = process.env.TEST_SECRET;
+    if (!secret || req.query.secret !== secret) return res.status(403).send('geen toegang');
+
+    const donatie = { naam: req.query.naam || 'Test Donateur', bedrag: req.query.bedrag || '5' };
+    stuurNaarOverlays({ type: 'donatie', ...donatie });
+    await stuurNaarDiscord(donatie);
+    res.send(`test-donatie verstuurd: €${donatie.bedrag} van ${donatie.naam}`);
+});
+
 // ---------- Donatiemail herkennen ----------
 // Gebaseerd op een echte mail van Stichting Opkikker <no-reply@community-fundraising.com>:
 // onderwerp "Je team heeft een donatie ontvangen", inhoud met de regels
